@@ -1,8 +1,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy frontend files and install frontend dependencies
+# Copy frontend and backend package files, then install dependencies
 COPY package*.json .
+COPY backend/package*.json ./backend/
 COPY tsconfig*.json .
 COPY vite.config.ts .
 COPY tailwind.config.* .
@@ -13,10 +14,10 @@ COPY README.md .
 RUN npm install
 
 # Install backend dependencies
-COPY backend/package*.json backend/
 RUN cd backend && npm install
 
-# Build frontend assets
+# Copy backend source and build frontend assets
+COPY backend ./backend
 RUN npm run build
 
 FROM node:20-alpine AS runner

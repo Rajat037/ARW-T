@@ -3,6 +3,7 @@ node_modules
 .env.local
 .env.*.local
 backend/.env
+cookies.txt
 backend/cookies.txt
 dist
 backend/node_modules
@@ -13,4 +14,3 @@ pnpm-debug.log*
 .DS_Store
 .vscode
 .idea
-
