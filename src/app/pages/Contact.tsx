@@ -1,41 +1,70 @@
-import { MapPin, Phone, Mail, Send, Star, Shield, Award } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useState } from 'react';
+import { MapPin, Phone, Mail, Send, Star, Shield, Award } from "lucide-react";
+import { motion } from "motion/react";
+import { useState } from "react";
 
 export function Contact() {
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3005";
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    service: '',
-    otherDetails: '',
-    comments: '',
+    name: "",
+    phone: "",
+    email: "",
+    service: "",
+    otherDetails: "",
+    comments: "",
   });
 
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState('');
+  const fetchCsrfToken = async () => {
+    const response = await fetch(`${API_URL}/api/csrf-token`, {
+      credentials: "include",
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to retrieve CSRF token.");
+    }
+
+    return data.csrfToken;
+  };
+
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatus('loading');
-    setErrorMessage('');
+    setStatus("loading");
+    setErrorMessage("");
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/contact`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const csrfToken = await fetchCsrfToken();
+
+      const response = await fetch(`${API_URL}/api/contact`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
         body: JSON.stringify(formData),
       });
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit the form');
+        throw new Error(data.error || "Failed to submit the form");
       }
 
-      setStatus('success');
-      setFormData({ name: '', phone: '', email: '', service: '', otherDetails: '', comments: '' });
-      setTimeout(() => setStatus('idle'), 5000);
+      setStatus("success");
+      setFormData({
+        name: "",
+        phone: "",
+        email: "",
+        service: "",
+        otherDetails: "",
+        comments: "",
+      });
+      setTimeout(() => setStatus("idle"), 5000);
     } catch (err: any) {
-      setStatus('error');
+      setStatus("error");
       setErrorMessage(err.message);
     }
   };
@@ -73,31 +102,44 @@ export function Contact() {
             transition={{ delay: 0.2 }}
             className="bg-white rounded-2xl p-8 shadow-lg"
           >
-            <h2 className="text-3xl font-semibold mb-6">Get Instant Tax Help</h2>
+            <h2 className="text-3xl font-semibold mb-6">
+              Get Instant Tax Help
+            </h2>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    htmlFor="name"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
                     Name
                   </label>
                   <input
                     type="text"
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
                     placeholder="Enter your name"
+                    required
                   />
                 </div>
                 <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    htmlFor="phone"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
                     Phone
                   </label>
                   <input
                     type="tel"
                     id="phone"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
                     placeholder="Enter your phone"
                   />
@@ -105,53 +147,79 @@ export function Contact() {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Email
                 </label>
                 <input
                   type="email"
                   id="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
                   placeholder="Enter your email"
+                  required
                 />
               </div>
 
               <div>
-                <label htmlFor="service" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="service"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Service Required
                 </label>
                 <select
                   id="service"
                   value={formData.service}
-                  onChange={(e) => setFormData({ ...formData, service: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, service: e.target.value })
+                  }
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none bg-white"
                   required
                 >
-                  <option value="" disabled>Select a service</option>
-                  <option value="Tax Return Filing & Advisory">Tax Return Filing & Advisory</option>
-                  <option value="Company / Firm Incorporation">Company / Firm Incorporation</option>
-                  <option value="Financial & Corporate Advisory">Financial & Corporate Advisory</option>
-                  <option value="Auditing & Assurance Services">Auditing & Assurance Services</option>
+                  <option value="" disabled>
+                    Select a service
+                  </option>
+                  <option value="Tax Return Filing & Advisory">
+                    Tax Return Filing & Advisory
+                  </option>
+                  <option value="Company / Firm Incorporation">
+                    Company / Firm Incorporation
+                  </option>
+                  <option value="Financial & Corporate Advisory">
+                    Financial & Corporate Advisory
+                  </option>
+                  <option value="Auditing & Assurance Services">
+                    Auditing & Assurance Services
+                  </option>
                   <option value="Other Services">Other Services</option>
                 </select>
               </div>
 
-              {formData.service === 'Other Services' && (
+              {formData.service === "Other Services" && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
+                  animate={{ opacity: 1, height: "auto" }}
                   className="overflow-hidden"
                 >
-                  <label htmlFor="otherDetails" className="block text-sm font-medium text-gray-700 mb-2 mt-2">
+                  <label
+                    htmlFor="otherDetails"
+                    className="block text-sm font-medium text-gray-700 mb-2 mt-2"
+                  >
                     Please specify the service you need
                   </label>
                   <input
                     type="text"
                     id="otherDetails"
                     value={formData.otherDetails}
-                    onChange={(e) => setFormData({ ...formData, otherDetails: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, otherDetails: e.target.value })
+                    }
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
                     placeholder="e.g., GST Registration"
                     required
@@ -159,15 +227,19 @@ export function Contact() {
                 </motion.div>
               )}
 
-
               <div>
-                <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="comments"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   Comments
                 </label>
                 <textarea
                   id="comments"
                   value={formData.comments}
-                  onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, comments: e.target.value })
+                  }
                   rows={5}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
                   placeholder="How can we help you?"
@@ -176,24 +248,37 @@ export function Contact() {
 
               <button
                 type="submit"
-                disabled={status === 'loading'}
+                disabled={status === "loading"}
                 className="w-full bg-green-600 text-white px-6 py-4 rounded-full font-semibold text-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
               >
-                {status === 'loading' ? (
+                {status === "loading" ? (
                   <div className="w-5 h-5 border-2 border-white rounded-full border-t-transparent animate-spin"></div>
                 ) : (
                   <Send className="w-5 h-5" />
                 )}
-                {status === 'loading' ? 'Sending...' : 'Send Message'}
+                {status === "loading" ? "Sending..." : "Send Message"}
               </button>
-              
-              {status === 'success' && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-green-50 text-green-700 rounded-lg text-center font-medium border border-green-200">
-                  Thank you! We have received your message and will reach out shortly.
+
+              {status === "success" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-green-50 text-green-700 rounded-lg text-center font-medium border border-green-200"
+                  role="status"
+                  aria-live="polite"
+                >
+                  Thank you! We have received your message and will reach out
+                  shortly.
                 </motion.div>
               )}
-              {status === 'error' && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-red-50 text-red-700 rounded-lg text-center font-medium border border-red-200">
+              {status === "error" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 bg-red-50 text-red-700 rounded-lg text-center font-medium border border-red-200"
+                  role="alert"
+                  aria-live="assertive"
+                >
                   {errorMessage}
                 </motion.div>
               )}
@@ -207,8 +292,10 @@ export function Contact() {
             transition={{ delay: 0.3 }}
           >
             <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-8 text-white mb-6">
-              <h2 className="text-3xl font-semibold mb-6">We are here to help</h2>
-              
+              <h2 className="text-3xl font-semibold mb-6">
+                We are here to help
+              </h2>
+
               <div className="space-y-6">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -216,9 +303,7 @@ export function Contact() {
                   </div>
                   <div>
                     <h3 className="font-semibold mb-1">Address</h3>
-                    <p className="text-blue-100">
-                      Amritsar, India
-                    </p>
+                    <p className="text-blue-100">Amritsar, India</p>
                   </div>
                 </div>
 
@@ -283,7 +368,9 @@ export function Contact() {
               className="bg-white rounded-2xl p-6 text-center shadow-lg"
             >
               <Shield className="w-12 h-12 mx-auto mb-4 text-green-600" />
-              <div className="text-3xl font-semibold mb-2">Trusted by 1+ Million</div>
+              <div className="text-3xl font-semibold mb-2">
+                Trusted by 1+ Million
+              </div>
               <p className="text-gray-600">Users</p>
             </motion.div>
 
@@ -307,7 +394,9 @@ export function Contact() {
               className="bg-white rounded-2xl p-6 text-center shadow-lg"
             >
               <Award className="w-12 h-12 mx-auto mb-4 text-purple-600" />
-              <div className="text-3xl font-semibold mb-2">Authorized by Income</div>
+              <div className="text-3xl font-semibold mb-2">
+                Authorized by Income
+              </div>
               <p className="text-gray-600">Tax Department</p>
             </motion.div>
           </div>
@@ -324,7 +413,8 @@ export function Contact() {
         >
           <h2 className="text-2xl font-semibold mb-4">A.R. Wealth & Tax Co.</h2>
           <p className="text-gray-700 mb-4">
-            Amritsar, Punjab,<br />
+            Amritsar, Punjab,
+            <br />
             India
           </p>
           <div className="flex items-center gap-2 text-gray-700 mb-2">

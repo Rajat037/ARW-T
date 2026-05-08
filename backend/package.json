@@ -1,20 +1,33 @@
 {
-    "name": "tax-advisory-backend",
-    "version": "1.0.0",
-    "description": "Backend API for A.R. Wealth & Tax Co. Tax Advisory",
-    "main": "server.js",
-    "type": "module",
-    "scripts": {
-        "start": "node server.js",
-        "dev": "node --watch server.js"
-    },
-    "dependencies": {
-        "bcryptjs": "^3.0.3",
-        "cors": "^2.8.5",
-        "dotenv": "^17.3.1",
-        "express": "^4.19.2",
-        "jsonwebtoken": "^9.0.3",
-        "mysql2": "^3.20.0",
-        "sqlite3": "^5.1.7"
-    }
+  "name": "tax-advisory-backend",
+  "version": "1.0.0",
+  "description": "Backend API for A.R. Wealth & Tax Co. Tax Advisory",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node migrate.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "csurf": "^1.11.0",
+    "dotenv": "^17.3.1",
+    "express": "^4.19.2",
+    "express-rate-limit": "^6.10.0",
+    "express-status-monitor": "^1.2.20",
+    "express-validator": "^7.0.1",
+    "firebase-admin": "^13.9.0",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.0",
+    "nodemailer": "^6.9.4",
+    "openai": "^6.37.0",
+    "pg": "^8.12.0",
+    "razorpay": "^2.0.7",
+    "xss-clean": "^0.1.1"
+  }
 }

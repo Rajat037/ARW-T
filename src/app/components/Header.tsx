@@ -1,80 +1,19 @@
-import { Link } from 'react-router';
-import { ChevronDown, User, LayoutDashboard, UserCircle, LogOut } from 'lucide-react';
-import { useState } from 'react';
-
-const productsMenu = [
-  "File Your Return",
-  "Upload Form 16",
-  "CA Assisted Tax Filing",
-  "Tax Planning Optimiser",
-  "TDS Solution",
-  "NRI Taxes & ITR Filing",
-  "Tax Advisory Services",
-  "Capital Gain Tax Filing",
-  "Income Tax Notices",
-  "Revised Return Filing",
-  "Belated Return Filing",
-  "ITR U (Updated Return)",
-];
-
-const toolsMenu = [
-  { name: "Tax Refund Status", col: 1 },
-  { name: "Income Tax Calculator", col: 2 },
-  { name: "Form 12BB", col: 1 },
-  { name: "HRA Calculator", col: 2 },
-  { name: "Gratuity Calculator", col: 1 },
-  { name: "Rent Receipt Generator", col: 2 },
-  { name: "TDS Calculator", col: 1 },
-  { name: "ITR Eligibility Checker", col: 2 },
-  { name: "Transport Allowance Calculator", col: 1 },
-  { name: "Calculator on Section 234F", col: 2 },
-  { name: "Leave Encashment Calculator", col: 1 },
-  { name: "80C Calculator", col: 2 },
-  { name: "House Property Calculator", col: 1 },
-  { name: "Cryptocurrency Tax Calculator", col: 2 },
-  { name: "80D Calculator", col: 1 },
-  { name: "Simple Interest Calculator", col: 2 },
-  { name: "80TTA Calculator", col: 1 },
-  { name: "80DD Calculator", col: 2 },
-  { name: "80U Calculator", col: 1 },
-  { name: "Compound Interest Calculator", col: 2 },
-  { name: "Old vs New Tax Slab Regime Calculator", col: 1 },
-  { name: "Sukanya Samriddhi Yojana Calculator", col: 2 },
-  { name: "IFSC Code Search", col: 1 },
-];
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ChevronDown,
+  User,
+  LayoutDashboard,
+  UserCircle,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+import { useState, useEffect } from "react";
+import { useAuth } from "./AuthContext";
 
 const knowledgeCenterMenu = [
-  "FAQ",
-  "Tax Glossary",
-  "Video Tutorials",
+  { name: "FAQ", path: "/faq" },
 ];
-
-const guidesMenu = {
-  "Income Tax Guides": [
-    "Aadhar",
-    "Capital Gains Income",
-    "E-filing of ITR",
-    "House Property",
-    "Income Tax Calendar",
-    "Income Tax Notices",
-    "Income Tax Slabs",
-    "Income Tax Verification",
-    "Pan Card",
-    "Salary Income",
-    "Section 80 Deductions",
-    "TDS",
-  ],
-  "GST Guides": [
-    "GST",
-    "GST System",
-    "GST Registration",
-    "Input Tax Credit",
-    "GST Procedure",
-    "GST Returns",
-    "GST eWay Bill",
-    "GST Rates",
-  ],
-};
 
 interface DropdownProps {
   label: React.ReactNode;
@@ -82,25 +21,37 @@ interface DropdownProps {
   onToggle: () => void;
   children: React.ReactNode;
   alignRight?: boolean;
+  id: string;
 }
 
-function Dropdown({ label, isOpen, onToggle, children, alignRight }: DropdownProps) {
+function Dropdown({
+  label,
+  isOpen,
+  onToggle,
+  children,
+  alignRight,
+  id,
+}: DropdownProps) {
   return (
     <div className="relative">
       <button
         onClick={onToggle}
         className="flex items-center gap-1 px-3 py-2 hover:text-green-600 transition-colors"
+        aria-expanded={isOpen}
+        aria-controls={`dropdown-${id}`}
+        aria-haspopup="true"
       >
         {label}
-        <ChevronDown className="w-4 h-4" />
+        <ChevronDown className="w-4 h-4" aria-hidden="true" />
       </button>
       {isOpen && (
         <>
+          <div className="fixed inset-0 z-10" onClick={onToggle} />
           <div
-            className="fixed inset-0 z-10"
-            onClick={onToggle}
-          />
-          <div className={`absolute top-full ${alignRight ? 'right-0' : 'left-0'} mt-2 bg-white rounded-lg shadow-lg z-20 min-w-[240px] max-h-[80vh] overflow-y-auto`}>
+            id={`dropdown-${id}`}
+            role="menu"
+            className={`absolute top-full ${alignRight ? "right-0" : "left-0"} mt-2 bg-white rounded-lg shadow-lg z-20 min-w-[240px] max-h-[80vh] overflow-y-auto`}
+          >
             {children}
           </div>
         </>
@@ -109,8 +60,37 @@ function Dropdown({ label, isOpen, onToggle, children, alignRight }: DropdownPro
   );
 }
 
+// --- Mobile Accordion ---
+interface MobileAccordionProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+function MobileAccordion({ label, children }: MobileAccordionProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-gray-100">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 text-gray-700 font-medium hover:text-green-600"
+        aria-expanded={open}
+      >
+        {label}
+        <ChevronDown
+          className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+      {open && <div className="pb-2 px-2">{children}</div>}
+    </div>
+  );
+}
+
 export function Header() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
 
   const toggleDropdown = (name: string) => {
     setOpenDropdown(openDropdown === name ? null : name);
@@ -120,17 +100,70 @@ export function Header() {
     setOpenDropdown(null);
   };
 
+  const closeMobile = () => {
+    setMobileOpen(false);
+  };
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    closeMobile();
+  }, [navigate]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2" onClick={closeDropdowns}>
+          <Link
+            to="/"
+            className="flex items-center gap-2"
+            onClick={() => {
+              closeDropdowns();
+              closeMobile();
+            }}
+          >
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 2L2 7L12 12L22 7L12 2Z"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M2 17L12 22L22 17"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M2 12L12 17L22 12"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </div>
               <span className="text-2xl font-semibold text-gray-800">
@@ -139,93 +172,40 @@ export function Header() {
             </div>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
-            <Dropdown
-              label="Products"
-              isOpen={openDropdown === 'products'}
-              onToggle={() => toggleDropdown('products')}
-            >
-              <div className="py-2">
-                {productsMenu.map((item) => (
-                  <button
-                    key={item}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 hover:text-green-600 transition-colors"
-                    onClick={closeDropdowns}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </Dropdown>
+          {/* Mobile hamburger */}
+          <button
+            className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-menu"
+          >
+            {mobileOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
+          </button>
 
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-1" aria-label="Main navigation">
             <Dropdown
-              label="Tools"
-              isOpen={openDropdown === 'tools'}
-              onToggle={() => toggleDropdown('tools')}
-            >
-              <div className="py-2 grid grid-cols-2 gap-x-4 min-w-[480px]">
-                {[1, 2].map((col) => (
-                  <div key={col}>
-                    {toolsMenu
-                      .filter((item) => item.col === col)
-                      .map((item) => (
-                        <button
-                          key={item.name}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 hover:text-green-600 transition-colors text-sm"
-                          onClick={closeDropdowns}
-                        >
-                          {item.name}
-                        </button>
-                      ))}
-                  </div>
-                ))}
-                <button
-                  className="col-span-2 text-center px-4 py-3 text-green-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                  onClick={closeDropdowns}
-                >
-                  More Tax Tools
-                  <ChevronDown className="w-4 h-4 rotate-[-90deg]" />
-                </button>
-              </div>
-            </Dropdown>
-
-            <Dropdown
+              id="knowledge"
               label="Knowledge Center"
-              isOpen={openDropdown === 'knowledge'}
-              onToggle={() => toggleDropdown('knowledge')}
+              isOpen={openDropdown === "knowledge"}
+              onToggle={() => toggleDropdown("knowledge")}
             >
               <div className="py-2">
                 {knowledgeCenterMenu.map((item) => (
-                  <button
-                    key={item}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 hover:text-green-600 transition-colors"
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    role="menuitem"
+                    className="block w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 hover:text-green-600 transition-colors"
                     onClick={closeDropdowns}
                   >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </Dropdown>
-
-            <Dropdown
-              label="Guides"
-              isOpen={openDropdown === 'guides'}
-              onToggle={() => toggleDropdown('guides')}
-            >
-              <div className="py-2 grid grid-cols-2 gap-x-4 min-w-[480px]">
-                {Object.entries(guidesMenu).map(([category, items]) => (
-                  <div key={category}>
-                    <div className="px-4 py-2 font-semibold text-gray-900">{category}</div>
-                    {items.map((item) => (
-                      <button
-                        key={item}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 hover:text-green-600 transition-colors text-sm"
-                        onClick={closeDropdowns}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
+                    {item.name}
+                  </Link>
                 ))}
               </div>
             </Dropdown>
@@ -246,33 +226,45 @@ export function Header() {
               Contact
             </Link>
 
-            {localStorage.getItem('token') ? (
+            {!loading && user ? (
               <Dropdown
-                label={<User className="w-5 h-5" />}
-                isOpen={openDropdown === 'profile'}
-                onToggle={() => toggleDropdown('profile')}
+                id="profile"
+                label={<User className="w-5 h-5" aria-hidden="true" />}
+                isOpen={openDropdown === "profile"}
+                onToggle={() => toggleDropdown("profile")}
                 alignRight={true}
               >
                 <div className="py-2 min-w-[200px]">
-                  <Link to="/dashboard" className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 hover:text-green-600 transition-colors w-full text-left" onClick={closeDropdowns}>
-                    <LayoutDashboard className="w-4 h-4" /> My Dashboard
+                  <Link
+                    to="/dashboard"
+                    role="menuitem"
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 hover:text-green-600 transition-colors w-full text-left"
+                    onClick={closeDropdowns}
+                  >
+                    <LayoutDashboard className="w-4 h-4" aria-hidden="true" /> My Dashboard
                   </Link>
-                  <Link to="/profile" className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 hover:text-green-600 transition-colors w-full text-left" onClick={closeDropdowns}>
-                    <UserCircle className="w-4 h-4" /> My Profile
+                  <Link
+                    to="/profile"
+                    role="menuitem"
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-gray-700 hover:text-green-600 transition-colors w-full text-left"
+                    onClick={closeDropdowns}
+                  >
+                    <UserCircle className="w-4 h-4" aria-hidden="true" /> My Profile
                   </Link>
                   <div className="border-t border-gray-100 my-1"></div>
                   <button
                     onClick={() => {
-                      localStorage.removeItem('token');
-                      window.location.href = '/login';
+                      closeDropdowns();
+                      logout();
                     }}
+                    role="menuitem"
                     className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 text-red-600 transition-colors w-full text-left"
                   >
-                    <LogOut className="w-4 h-4" /> Logout
+                    <LogOut className="w-4 h-4" aria-hidden="true" /> Logout
                   </button>
                 </div>
               </Dropdown>
-            ) : (
+            ) : !loading ? (
               <>
                 <Link
                   to="/login"
@@ -289,10 +281,124 @@ export function Header() {
                   Sign Up
                 </Link>
               </>
-            )}
+            ) : null}
           </nav>
         </div>
       </div>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-40 md:hidden"
+            onClick={closeMobile}
+            aria-hidden="true"
+          />
+          <nav
+            id="mobile-menu"
+            role="navigation"
+            aria-label="Mobile navigation"
+            className="fixed top-0 right-0 h-full w-[85vw] max-w-[360px] bg-white z-50 shadow-2xl overflow-y-auto md:hidden animate-in slide-in-from-right"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <span className="text-lg font-semibold text-gray-800">Menu</span>
+              <button
+                onClick={closeMobile}
+                className="p-2 rounded-lg hover:bg-gray-100"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="py-2">
+              <MobileAccordion label="Knowledge Center">
+                {knowledgeCenterMenu.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-600 hover:text-green-600 hover:bg-gray-50 rounded-lg"
+                    onClick={closeMobile}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </MobileAccordion>
+
+              <div className="border-b border-gray-100">
+                <Link
+                  to="/pricing"
+                  className="block px-4 py-3 text-gray-700 font-medium hover:text-green-600"
+                  onClick={closeMobile}
+                >
+                  Pricing
+                </Link>
+              </div>
+
+              <div className="border-b border-gray-100">
+                <Link
+                  to="/contact"
+                  className="block px-4 py-3 text-gray-700 font-medium hover:text-green-600"
+                  onClick={closeMobile}
+                >
+                  Contact
+                </Link>
+              </div>
+
+              {!loading && user ? (
+                <>
+                  <div className="border-b border-gray-100">
+                    <Link
+                      to="/dashboard"
+                      className="flex items-center gap-3 px-4 py-3 text-gray-700 font-medium hover:text-green-600"
+                      onClick={closeMobile}
+                    >
+                      <LayoutDashboard className="w-4 h-4" aria-hidden="true" /> My Dashboard
+                    </Link>
+                  </div>
+                  <div className="border-b border-gray-100">
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-3 px-4 py-3 text-gray-700 font-medium hover:text-green-600"
+                      onClick={closeMobile}
+                    >
+                      <UserCircle className="w-4 h-4" aria-hidden="true" /> My Profile
+                    </Link>
+                  </div>
+                  <div className="px-4 py-3">
+                    <button
+                      onClick={() => {
+                        closeMobile();
+                        logout();
+                      }}
+                      className="flex items-center gap-3 text-red-600 font-medium hover:text-red-700"
+                    >
+                      <LogOut className="w-4 h-4" aria-hidden="true" /> Logout
+                    </button>
+                  </div>
+                </>
+              ) : !loading ? (
+                <div className="p-4 space-y-3">
+                  <Link
+                    to="/login"
+                    className="block text-center py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:border-green-600 hover:text-green-600 transition-colors"
+                    onClick={closeMobile}
+                  >
+                    Log In
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="block text-center py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors"
+                    onClick={closeMobile}
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          </nav>
+        </>
+      )}
     </header>
   );
 }

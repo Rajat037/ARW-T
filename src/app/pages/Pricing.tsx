@@ -1,12 +1,15 @@
-import { Check } from 'lucide-react';
-import { motion } from 'motion/react';
-import { Link } from 'react-router';
+import { Check } from "lucide-react";
+import { motion } from "motion/react";
+import { Link } from "react-router-dom";
+import { useState } from "react";
 
 const pricingPlans = [
   {
+    id: "standard",
     name: "eCA Assisted - Standard",
     icon: "💳",
-    description: "Includes salary income from one employer, single house property income & income from other sources.",
+    description:
+      "Includes salary income from one employer, single house property income & income from other sources.",
     basePrice: "₹2999",
     price: "₹ 2314",
     features: [
@@ -18,9 +21,11 @@ const pricingPlans = [
     ],
   },
   {
+    id: "multiple-form-16",
     name: "eCA Assisted - Multiple Form 16",
     icon: "💼",
-    description: "Everything in Standard plus salary income from multiple employers.",
+    description:
+      "Everything in Standard plus salary income from multiple employers.",
     basePrice: "₹3429",
     price: "₹ 2743",
     features: [
@@ -32,9 +37,11 @@ const pricingPlans = [
     ],
   },
   {
+    id: "business-income",
     name: "eCA Assisted - Business Income",
     icon: "📊",
-    description: "Everything in Multiple Form 16 plus income from multiple house property and income u/s 44AD & 44ADA.",
+    description:
+      "Everything in Multiple Form 16 plus income from multiple house property and income u/s 44AD & 44ADA.",
     basePrice: "₹5160",
     price: "₹ 4128",
     features: [
@@ -46,9 +53,11 @@ const pricingPlans = [
     ],
   },
   {
+    id: "capital-gain",
     name: "eCA Assisted - Capital Gain",
     icon: "📈",
-    description: "Everything in Business Income plus capital gain income and relief u/s 89.",
+    description:
+      "Everything in Business Income plus capital gain income and relief u/s 89.",
     basePrice: "₹7939",
     price: "₹ 6351",
     features: [
@@ -60,6 +69,7 @@ const pricingPlans = [
     ],
   },
   {
+    id: "nri",
     name: "eCA Assisted - NRI",
     icon: "🌍",
     description: "Provides maximum tax benefit on your Indian income.",
@@ -74,9 +84,11 @@ const pricingPlans = [
     ],
   },
   {
+    id: "foreign",
     name: "eCA Assisted - Foreign",
     icon: "🔍",
-    description: "Covers all your foreign income and provides the maximum benefit under DTAA.",
+    description:
+      "Covers all your foreign income and provides the maximum benefit under DTAA.",
     basePrice: "₹15880",
     price: "₹ 12704",
     features: [
@@ -89,7 +101,130 @@ const pricingPlans = [
   },
 ];
 
+const loadRazorpayScript = (src: string) =>
+  new Promise<boolean>((resolve) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+const convertRupeesToPaise = (price: string) =>
+  Number(price.replace(/[^\d]/g, "")) * 100;
+
+const fetchCsrfToken = async (apiUrl: string) => {
+  const response = await fetch(`${apiUrl}/api/csrf-token`, {
+    credentials: "include",
+  });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Unable to retrieve CSRF token.");
+  }
+
+  return data.csrfToken;
+};
+
 export function Pricing() {
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3005";
+
+  const handleBuyNow = async (plan: (typeof pricingPlans)[number]) => {
+    setPaymentLoading(true);
+    setError(null);
+
+    const priceInPaise = convertRupeesToPaise(plan.price);
+    const scriptLoaded = await loadRazorpayScript(
+      "https://checkout.razorpay.com/v1/checkout.js",
+    );
+
+    if (!scriptLoaded) {
+      setError("Unable to load payment gateway. Please try again.");
+      setPaymentLoading(false);
+      return;
+    }
+
+    try {
+      const csrfToken = await fetchCsrfToken(API_URL);
+
+      const createOrderResponse = await fetch(
+        `${API_URL}/api/payments/create-order`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken,
+          },
+          body: JSON.stringify({
+            planId: plan.id,
+            planName: plan.name,
+            amount: priceInPaise,
+          }),
+        },
+      );
+
+      const data = await createOrderResponse.json();
+      if (!createOrderResponse.ok) {
+        setError(data.error || "Failed to create payment order.");
+        setPaymentLoading(false);
+        return;
+      }
+
+      const options = {
+        key: data.key,
+        amount: data.order.amount,
+        currency: data.order.currency,
+        name: "A.R. Wealth & Tax Co.",
+        description: plan.name,
+        order_id: data.order.id,
+        handler: async (response: any) => {
+          const verifyResponse = await fetch(`${API_URL}/api/payments/verify`, {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken,
+            },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+
+          const verifyResult = await verifyResponse.json();
+          if (!verifyResponse.ok) {
+            setError(verifyResult.error || "Payment verification failed.");
+          } else {
+            window.alert("Payment successful! Your order has been confirmed.");
+          }
+          setPaymentLoading(false);
+        },
+        prefill: {
+          name: "",
+          email: "",
+          contact: "",
+        },
+        notes: {
+          planId: plan.id,
+          planName: plan.name,
+        },
+        theme: {
+          color: "#2563eb",
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (error: any) {
+      setError(error.message || "Unable to initiate payment.");
+      setPaymentLoading(false);
+    }
+  };
+
   return (
     <div className="bg-gradient-to-b from-blue-50 to-white min-h-screen">
       {/* Hero Section */}
@@ -108,13 +243,20 @@ export function Pricing() {
             transition={{ delay: 0.1 }}
             className="text-xl text-blue-100"
           >
-            Select The <span className="underline decoration-2">Product That's Right</span> For You
+            Select The{" "}
+            <span className="underline decoration-2">Product That's Right</span>{" "}
+            For You
           </motion.p>
         </div>
       </section>
 
       {/* Pricing Cards */}
       <section className="container mx-auto px-4 py-16">
+        {error && (
+          <div className="mb-8 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+            {error}
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {pricingPlans.map((plan, index) => (
             <motion.div
@@ -134,7 +276,9 @@ export function Pricing() {
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-sm text-gray-500">Base Price:</span>
-                  <span className="text-lg text-gray-400 line-through">{plan.basePrice}</span>
+                  <span className="text-lg text-gray-400 line-through">
+                    {plan.basePrice}
+                  </span>
                 </div>
                 <div className="text-4xl font-semibold text-gray-900 mb-1">
                   {plan.price}
@@ -144,15 +288,22 @@ export function Pricing() {
 
               <ul className="space-y-3 mb-8">
                 {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-gray-700"
+                  >
                     <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                     <span>{feature}</span>
                   </li>
                 ))}
               </ul>
 
-              <button className="w-full bg-white border-2 border-gray-900 text-gray-900 px-6 py-3 rounded-full font-semibold hover:bg-gray-900 hover:text-white transition-colors">
-                Buy Now
+              <button
+                onClick={() => handleBuyNow(plan)}
+                disabled={paymentLoading}
+                className="w-full bg-white border-2 border-gray-900 text-gray-900 px-6 py-3 rounded-full font-semibold hover:bg-gray-900 hover:text-white transition-colors disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {paymentLoading ? "Processing..." : "Buy Now"}
               </button>
             </motion.div>
           ))}
@@ -180,9 +331,12 @@ export function Pricing() {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-8 h-8 text-green-600" />
               </div>
-              <h3 className="text-xl font-semibold mb-3">100% Accurate Filing</h3>
+              <h3 className="text-xl font-semibold mb-3">
+                100% Accurate Filing
+              </h3>
               <p className="text-gray-600">
-                Our expert eCAs ensure your returns are filed accurately with maximum refund
+                Our expert eCAs ensure your returns are filed accurately with
+                maximum refund
               </p>
             </motion.div>
             <motion.div
@@ -195,9 +349,12 @@ export function Pricing() {
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-xl font-semibold mb-3">Quick & Easy Process</h3>
+              <h3 className="text-xl font-semibold mb-3">
+                Quick & Easy Process
+              </h3>
               <p className="text-gray-600">
-                File your ITR in just 4 minutes with our simple and intuitive platform
+                File your ITR in just 4 minutes with our simple and intuitive
+                platform
               </p>
             </motion.div>
             <motion.div
@@ -210,9 +367,12 @@ export function Pricing() {
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="w-8 h-8 text-purple-600" />
               </div>
-              <h3 className="text-xl font-semibold mb-3">Secure & Confidential</h3>
+              <h3 className="text-xl font-semibold mb-3">
+                Secure & Confidential
+              </h3>
               <p className="text-gray-600">
-                Your data is encrypted and protected with bank-level security standards
+                Your data is encrypted and protected with bank-level security
+                standards
               </p>
             </motion.div>
           </div>
@@ -233,7 +393,10 @@ export function Pricing() {
           <p className="text-xl text-indigo-100 mb-8">
             Our tax experts can help you select the best plan for your needs
           </p>
-          <Link to="/contact" className="inline-block bg-white text-indigo-600 px-8 py-4 rounded-full font-semibold text-lg hover:bg-indigo-50 transition-colors">
+          <Link
+            to="/contact"
+            className="inline-block bg-white text-indigo-600 px-8 py-4 rounded-full font-semibold text-lg hover:bg-indigo-50 transition-colors"
+          >
             Talk to an Expert
           </Link>
         </motion.div>
