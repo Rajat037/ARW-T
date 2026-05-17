@@ -75,11 +75,18 @@ app.use(
           "'self'",
           "'unsafe-inline'",
           "https://checkout.razorpay.com",
+          "https://apis.google.com",
+          "https://*.firebaseapp.com",
         ],
         "connect-src": [
           "'self'",
           "https://api.razorpay.com",
           "https://checkout.razorpay.com",
+          "https://*.googleapis.com",
+          "https://*.firebase.com",
+          "https://*.firebaseio.com",
+          "https://identitytoolkit.googleapis.com",
+          "https://securetoken.googleapis.com",
         ],
         "frame-src": [
           "'self'",
@@ -87,6 +94,8 @@ app.use(
           "https://checkout.razorpay.com",
           "https://maps.google.com",
           "https://www.google.com",
+          "https://accounts.google.com",
+          "https://*.firebaseapp.com",
         ],
         "img-src": [
           "'self'",
