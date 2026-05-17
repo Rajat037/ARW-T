@@ -73,6 +73,11 @@ export function Signup() {
         window.location.href = "/";
       }, 1000);
     } catch (err: any) {
+      // User simply closed the popup — not a real error, reset silently
+      if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
+        setStatus("idle");
+        return;
+      }
       setStatus("error");
       setErrorMessage(err.message);
     }
