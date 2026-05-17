@@ -31,6 +31,11 @@ export function Login() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (!auth || !googleProvider) {
+      setStatus("error");
+      setErrorMessage("Google Sign-In is not configured. Please contact support.");
+      return;
+    }
     setStatus("loading");
     setErrorMessage("");
     try {
