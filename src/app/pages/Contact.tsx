@@ -350,8 +350,8 @@ export function Contact() {
                       updateField("otherDetails", e.target.value)
                     }
                     className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none ${formErrors.otherDetails
-                        ? "border-red-400"
-                        : "border-gray-300"
+                      ? "border-red-400"
+                      : "border-gray-300"
                       }`}
                     placeholder="e.g., GST Registration"
                     aria-invalid={Boolean(formErrors.otherDetails)}
@@ -457,7 +457,7 @@ export function Contact() {
                   </div>
                   <div>
                     <h3 className="font-semibold mb-1">Phone</h3>
-                    <p className="text-blue-100">+91 8887759387</p>
+                    <p className="text-blue-100">+91 8887759387, +91 7717323429</p>
                   </div>
                 </div>
 
