@@ -1,8 +1,6 @@
 import { Check } from "lucide-react";
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
-import { useState } from "react";
-import { getApiUrl } from "../lib/api";
 
 const pricingPlans = [
   {
@@ -12,7 +10,7 @@ const pricingPlans = [
     description:
       "Includes salary income from one employer, single house property income & income from other sources.",
     basePrice: "₹2999",
-    price: "₹ 2314",
+    price: "₹ 2000",
     features: [
       "Salary income from one employer",
       "Single house property income",
@@ -28,7 +26,7 @@ const pricingPlans = [
     description:
       "Everything in Standard plus salary income from multiple employers.",
     basePrice: "₹3429",
-    price: "₹ 2743",
+    price: "₹ 2799",
     features: [
       "All features of Standard plan",
       "Salary income from multiple employers",
@@ -44,7 +42,7 @@ const pricingPlans = [
     description:
       "Everything in Multiple Form 16 plus income from multiple house property and income u/s 44AD & 44ADA.",
     basePrice: "₹5160",
-    price: "₹ 4128",
+    price: "₹ 4000",
     features: [
       "All features of Multiple Form 16",
       "Multiple house property income",
@@ -60,7 +58,7 @@ const pricingPlans = [
     description:
       "Everything in Business Income plus capital gain income and relief u/s 89.",
     basePrice: "₹7939",
-    price: "₹ 6351",
+    price: "₹ 5999",
     features: [
       "All features of Business Income",
       "Capital gain income calculation",
@@ -102,130 +100,7 @@ const pricingPlans = [
   },
 ];
 
-const loadRazorpayScript = (src: string) =>
-  new Promise<boolean>((resolve) => {
-    const script = document.createElement("script");
-    script.src = src;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-
-const convertRupeesToPaise = (price: string) =>
-  Number(price.replace(/[^\d]/g, "")) * 100;
-
-const fetchCsrfToken = async (apiUrl: string) => {
-  const response = await fetch(`${apiUrl}/api/csrf-token`, {
-    credentials: "include",
-  });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Unable to retrieve CSRF token.");
-  }
-
-  return data.csrfToken;
-};
-
 export function Pricing() {
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const API_URL = getApiUrl();
-
-  const handleBuyNow = async (plan: (typeof pricingPlans)[number]) => {
-    setPaymentLoading(true);
-    setError(null);
-
-    const priceInPaise = convertRupeesToPaise(plan.price);
-    const scriptLoaded = await loadRazorpayScript(
-      "https://checkout.razorpay.com/v1/checkout.js",
-    );
-
-    if (!scriptLoaded) {
-      setError("Unable to load payment gateway. Please try again.");
-      setPaymentLoading(false);
-      return;
-    }
-
-    try {
-      const csrfToken = await fetchCsrfToken(API_URL);
-
-      const createOrderResponse = await fetch(
-        `${API_URL}/api/payments/create-order`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-Token": csrfToken,
-          },
-          body: JSON.stringify({
-            planId: plan.id,
-            planName: plan.name,
-            amount: priceInPaise,
-          }),
-        },
-      );
-
-      const data = await createOrderResponse.json();
-      if (!createOrderResponse.ok) {
-        setError(data.error || "Failed to create payment order.");
-        setPaymentLoading(false);
-        return;
-      }
-
-      const options = {
-        key: data.key,
-        amount: data.order.amount,
-        currency: data.order.currency,
-        name: "A.R. Wealth & Tax Co.",
-        description: plan.name,
-        order_id: data.order.id,
-        handler: async (response: any) => {
-          const verifyResponse = await fetch(`${API_URL}/api/payments/verify`, {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-Token": csrfToken,
-            },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          });
-
-          const verifyResult = await verifyResponse.json();
-          if (!verifyResponse.ok) {
-            setError(verifyResult.error || "Payment verification failed.");
-          } else {
-            window.alert("Payment successful! Your order has been confirmed.");
-          }
-          setPaymentLoading(false);
-        },
-        prefill: {
-          name: "",
-          email: "",
-          contact: "",
-        },
-        notes: {
-          planId: plan.id,
-          planName: plan.name,
-        },
-        theme: {
-          color: "#2563eb",
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
-    } catch (error: any) {
-      setError(error.message || "Unable to initiate payment.");
-      setPaymentLoading(false);
-    }
-  };
-
   return (
     <div className="bg-gradient-to-b from-blue-50 to-white min-h-screen">
       {/* Hero Section */}
@@ -253,11 +128,6 @@ export function Pricing() {
 
       {/* Pricing Cards */}
       <section className="container mx-auto px-4 py-16">
-        {error && (
-          <div className="mb-8 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-            {error}
-          </div>
-        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {pricingPlans.map((plan, index) => (
             <motion.div
@@ -299,13 +169,12 @@ export function Pricing() {
                 ))}
               </ul>
 
-              <button
-                onClick={() => handleBuyNow(plan)}
-                disabled={paymentLoading}
-                className="w-full bg-white border-2 border-gray-900 text-gray-900 px-6 py-3 rounded-full font-semibold hover:bg-gray-900 hover:text-white transition-colors disabled:cursor-not-allowed disabled:opacity-70"
+              <Link
+                to="/contact"
+                className="block w-full bg-white border-2 border-gray-900 text-gray-900 px-6 py-3 rounded-full font-semibold text-center hover:bg-gray-900 hover:text-white transition-colors"
               >
-                {paymentLoading ? "Processing..." : "Buy Now"}
-              </button>
+                Buy Now
+              </Link>
             </motion.div>
           ))}
         </div>

@@ -128,6 +128,14 @@ const createTables = async () => {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_tax_filings_user_id ON tax_filings(user_id)`,
   );
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      email TEXT PRIMARY KEY,
+      otp TEXT NOT NULL,
+      expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+    )
+  `);
 };
 
 export const initializeDb = async () => {

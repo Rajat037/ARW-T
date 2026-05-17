@@ -102,6 +102,9 @@ export function Signup() {
 
       const data = await response.json();
       if (!response.ok) {
+        if (data.errors && data.errors.length > 0) {
+          throw new Error(data.errors[0].message);
+        }
         throw new Error(data.error || "Failed to sign up");
       }
 

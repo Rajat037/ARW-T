@@ -30,6 +30,7 @@ export { default as LayoutDashboard } from "lucide-react/dist/esm/icons/layout-d
 export { default as Linkedin } from "lucide-react/dist/esm/icons/linkedin.js";
 export { default as Loader2 } from "lucide-react/dist/esm/icons/loader-2.js";
 export { default as Lock } from "lucide-react/dist/esm/icons/lock.js";
+export { default as KeyRound } from "lucide-react/dist/esm/icons/key-round.js";
 export { default as Zap } from "lucide-react/dist/esm/icons/zap.js";
 export { default as LogIn } from "lucide-react/dist/esm/icons/log-in.js";
 export { default as LogOut } from "lucide-react/dist/esm/icons/log-out.js";

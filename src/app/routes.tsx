@@ -10,6 +10,7 @@ const Pricing = lazy(() => import("./pages/Pricing").then((m) => ({ default: m.P
 const Contact = lazy(() => import("./pages/Contact").then((m) => ({ default: m.Contact })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const Signup = lazy(() => import("./pages/Signup").then((m) => ({ default: m.Signup })));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword").then((m) => ({ default: m.ForgotPassword })));
 const NotFound = lazy(() => import("./pages/NotFound").then((m) => ({ default: m.NotFound })));
 const Profile = lazy(() => import("./pages/Profile").then((m) => ({ default: m.Profile })));
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "login", element: <SuspenseWrapper><Login /></SuspenseWrapper> },
           { path: "signup", element: <SuspenseWrapper><Signup /></SuspenseWrapper> },
+          { path: "forgot-password", element: <SuspenseWrapper><ForgotPassword /></SuspenseWrapper> },
         ]
       },
 

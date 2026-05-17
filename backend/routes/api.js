@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import Razorpay from "razorpay";
 import { body, validationResult } from "express-validator";
 import { pool as db } from "../lib/db.js";
-import { sendContactNotification } from "../lib/mailer.js";
+import { sendContactNotification, sendOtpEmail } from "../lib/mailer.js";
 import admin from "firebase-admin";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_super_secret_key_123";
@@ -54,13 +54,18 @@ const validateRequest = (req, res, next) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({
       errors: errors.array().map((error) => ({
-        field: error.param,
+        field: error.path || error.param,
         message: error.msg,
       })),
     });
   }
   next();
 };
+
+const isValidGmail = (value) => /^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(value);
+const normalizePhone = (value = "") => value.replace(/[\s()-]/g, "");
+const isValidIndianMobile = (value) =>
+  /^(?:\+91|91)?[6-9]\d{9}$/.test(normalizePhone(value));
 
 // Middleware to authenticate via httpOnly cookie
 const authenticateToken = (req, res, next) => {
@@ -106,6 +111,7 @@ router.get("/auth/me", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.status(200).json({ authenticated: true, user: result.rows[0] });
   } catch (error) {
     return handleDatabaseError(res, error);
@@ -298,16 +304,49 @@ router.post(
 router.post(
   "/contact",
   [
-    body("name").trim().notEmpty().withMessage("Name is required.").escape(),
+    body("name")
+      .trim()
+      .notEmpty()
+      .withMessage("Name is required.")
+      .isLength({ min: 2, max: 80 })
+      .withMessage("Name must be between 2 and 80 characters.")
+      .escape(),
     body("email")
       .trim()
-      .isEmail()
-      .withMessage("Valid email is required.")
+      .notEmpty()
+      .withMessage("Gmail address is required.")
+      .custom(isValidGmail)
+      .withMessage("Enter a valid Gmail address.")
       .normalizeEmail(),
-    body("phone").optional({ checkFalsy: true }).trim().escape(),
-    body("service").optional({ checkFalsy: true }).trim().escape(),
-    body("otherDetails").optional({ checkFalsy: true }).trim().escape(),
-    body("comments").optional({ checkFalsy: true }).trim().escape(),
+    body("phone")
+      .trim()
+      .notEmpty()
+      .withMessage("Phone number is required.")
+      .custom(isValidIndianMobile)
+      .withMessage("Enter a valid Indian mobile number.")
+      .customSanitizer(normalizePhone)
+      .escape(),
+    body("service").trim().notEmpty().withMessage("Service is required.").escape(),
+    body("otherDetails")
+      .if(body("service").equals("Other Services"))
+      .trim()
+      .notEmpty()
+      .withMessage("Please specify the service you need.")
+      .isLength({ max: 120 })
+      .withMessage("Service details must be 120 characters or fewer.")
+      .escape(),
+    body("otherDetails")
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 120 })
+      .withMessage("Service details must be 120 characters or fewer.")
+      .escape(),
+    body("comments")
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 1000 })
+      .withMessage("Comments must be 1000 characters or fewer.")
+      .escape(),
     validateRequest,
   ],
   async (req, res) => {
@@ -444,6 +483,101 @@ router.post(
   },
 );
 
+// Forgot Password - Send OTP
+router.post(
+  "/auth/forgot-password",
+  [
+    body("email")
+      .trim()
+      .isEmail()
+      .withMessage("Valid email is required.")
+      .normalizeEmail(),
+    validateRequest,
+  ],
+  async (req, res) => {
+    const { email } = req.body;
+
+    try {
+      // Check if user exists
+      const userResult = await db.query("SELECT id FROM users WHERE email = $1", [email]);
+      if (userResult.rows.length === 0) {
+        // Return 200 even if user not found to prevent email enumeration
+        return res.status(200).json({ success: true, message: "If an account with that email exists, an OTP has been sent." });
+      }
+
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+      // Store OTP in password_resets table
+      await db.query(
+        `INSERT INTO password_resets (email, otp, expires_at) 
+         VALUES ($1, $2, $3) 
+         ON CONFLICT (email) 
+         DO UPDATE SET otp = EXCLUDED.otp, expires_at = EXCLUDED.expires_at`,
+        [email, otp, expiresAt]
+      );
+
+      // Send Email
+      await sendOtpEmail(email, otp);
+
+      res.status(200).json({ success: true, message: "If an account with that email exists, an OTP has been sent." });
+    } catch (error) {
+      console.error("Failed to process forgot password:", error);
+      return handleDatabaseError(res, error);
+    }
+  }
+);
+
+// Reset Password - Verify OTP & Update Password
+router.post(
+  "/auth/reset-password",
+  [
+    body("email")
+      .trim()
+      .isEmail()
+      .withMessage("Valid email is required.")
+      .normalizeEmail(),
+    body("otp")
+      .trim()
+      .notEmpty()
+      .withMessage("OTP is required."),
+    body("newPassword")
+      .trim()
+      .isLength({ min: 8 })
+      .withMessage("New password must be at least 8 characters."),
+    validateRequest,
+  ],
+  async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+
+    try {
+      const resetResult = await db.query(
+        "SELECT * FROM password_resets WHERE email = $1 AND otp = $2 AND expires_at > NOW()",
+        [email, otp]
+      );
+
+      if (resetResult.rows.length === 0) {
+        return res.status(400).json({ error: "Invalid or expired OTP." });
+      }
+
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+      // Update password
+      await db.query("UPDATE users SET password = $1 WHERE email = $2", [hashedPassword, email]);
+
+      // Delete OTP
+      await db.query("DELETE FROM password_resets WHERE email = $1", [email]);
+
+      res.status(200).json({ success: true, message: "Password reset successfully." });
+    } catch (error) {
+      return handleDatabaseError(res, error);
+    }
+  }
+);
+
 router.get("/csrf-token", (req, res) => {
   res.status(200).json({ csrfToken: req.csrfToken() });
 });
@@ -530,7 +664,7 @@ router.get("/profile", authenticateToken, async (req, res) => {
       );
     }
 
-    res.set("Cache-Control", "private, max-age=60");
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.status(200).json(result.rows[0]);
   } catch (error) {
     return handleDatabaseError(res, error);

@@ -51,3 +51,22 @@ export const sendContactNotification = async (contact) => {
     html,
   });
 };
+
+export const sendOtpEmail = async (email, otp) => {
+  const subject = `Your Password Reset OTP`;
+  const plainText = `Your OTP for password reset is: ${otp}. It is valid for 10 minutes.`;
+  const html = `
+    <h2>Password Reset Request</h2>
+    <p>You have requested to reset your password. Here is your OTP:</p>
+    <h3 style="font-size: 24px; letter-spacing: 2px;">${otp}</h3>
+    <p>This OTP is valid for 10 minutes. If you didn't request this, please ignore this email.</p>
+  `;
+
+  return transporter.sendMail({
+    from: EMAIL_FROM,
+    to: email, // send to the user's email
+    subject,
+    text: plainText,
+    html,
+  });
+};

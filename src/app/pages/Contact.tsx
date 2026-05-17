@@ -3,9 +3,33 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import { getApiUrl } from "../lib/api";
 
+const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+const INDIAN_MOBILE_REGEX = /^(?:\+91|91)?[6-9]\d{9}$/;
+
+const normalizePhoneForValidation = (phone: string) =>
+  phone.replace(/[\s()-]/g, "");
+
+const sanitizePhoneInput = (phone: string) => {
+  const cleaned = phone.replace(/[^\d+\s()-]/g, "");
+  return cleaned.startsWith("+")
+    ? `+${cleaned.slice(1).replace(/\+/g, "")}`
+    : cleaned.replace(/\+/g, "");
+};
+
+type ContactFormData = {
+  name: string;
+  phone: string;
+  email: string;
+  service: string;
+  otherDetails: string;
+  comments: string;
+};
+
+type FormErrors = Partial<Record<keyof ContactFormData, string>>;
+
 export function Contact() {
   const API_URL = getApiUrl();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ContactFormData>({
     name: "",
     phone: "",
     email: "",
@@ -31,11 +55,73 @@ export function Contact() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+
+  const validateForm = () => {
+    const errors: FormErrors = {};
+    const normalizedPhone = normalizePhoneForValidation(formData.phone);
+
+    if (!formData.name.trim()) {
+      errors.name = "Name is required.";
+    }
+
+    if (!GMAIL_REGEX.test(formData.email.trim())) {
+      errors.email = "Enter a valid Gmail address, for example name@gmail.com.";
+    }
+
+    if (!INDIAN_MOBILE_REGEX.test(normalizedPhone)) {
+      errors.phone =
+        "Enter a valid Indian mobile number, for example 9889773209 or +919889773209.";
+    }
+
+    if (!formData.service) {
+      errors.service = "Select a service.";
+    }
+
+    if (
+      formData.service === "Other Services" &&
+      !formData.otherDetails.trim()
+    ) {
+      errors.otherDetails = "Please specify the service you need.";
+    }
+
+    return errors;
+  };
+
+  const updateField = (field: keyof ContactFormData, value: string) => {
+    setFormData((current) => ({ ...current, [field]: value }));
+    setFormErrors((current) => ({ ...current, [field]: undefined }));
+  };
+
+  const validatePhoneField = (phone: string) => {
+    const normalizedPhone = normalizePhoneForValidation(phone);
+
+    if (!INDIAN_MOBILE_REGEX.test(normalizedPhone)) {
+      setFormErrors((current) => ({
+        ...current,
+        phone:
+          "Enter a valid Indian mobile number, for example 8887759387 or +918887759387.",
+      }));
+      return;
+    }
+
+    setFormErrors((current) => ({ ...current, phone: undefined }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const validationErrors = validateForm();
+
+    if (Object.keys(validationErrors).length > 0) {
+      setFormErrors(validationErrors);
+      setStatus("error");
+      setErrorMessage("Please fix the highlighted fields.");
+      return;
+    }
+
     setStatus("loading");
     setErrorMessage("");
+    setFormErrors({});
     try {
       const csrfToken = await fetchCsrfToken();
 
@@ -51,7 +137,12 @@ export function Contact() {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Failed to submit the form");
+        const validationMessage = Array.isArray(data.errors)
+          ? data.errors.map((error: { message: string }) => error.message).join(" ")
+          : "";
+        throw new Error(
+          validationMessage || data.error || "Failed to submit the form",
+        );
       }
 
       setStatus("success");
@@ -119,13 +210,19 @@ export function Contact() {
                     type="text"
                     id="name"
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                    onChange={(e) => updateField("name", e.target.value)}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none ${formErrors.name ? "border-red-400" : "border-gray-300"
+                      }`}
                     placeholder="Enter your name"
+                    aria-invalid={Boolean(formErrors.name)}
+                    aria-describedby={formErrors.name ? "name-error" : undefined}
                     required
                   />
+                  {formErrors.name && (
+                    <p id="name-error" className="mt-2 text-sm text-red-600">
+                      {formErrors.name}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -139,11 +236,26 @@ export function Contact() {
                     id="phone"
                     value={formData.phone}
                     onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
+                      updateField("phone", sanitizePhoneInput(e.target.value))
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                    placeholder="Enter your phone"
+                    onBlur={(e) => validatePhoneField(e.target.value)}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none ${formErrors.phone ? "border-red-400" : "border-gray-300"
+                      }`}
+                    placeholder="Enter your mobile number"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    maxLength={17}
+                    aria-invalid={Boolean(formErrors.phone)}
+                    aria-describedby={
+                      formErrors.phone ? "phone-error" : undefined
+                    }
+                    required
                   />
+                  {formErrors.phone && (
+                    <p id="phone-error" className="mt-2 text-sm text-red-600">
+                      {formErrors.phone}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -158,13 +270,21 @@ export function Contact() {
                   type="email"
                   id="email"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                  placeholder="Enter your email"
+                  onChange={(e) => updateField("email", e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none ${formErrors.email ? "border-red-400" : "border-gray-300"
+                    }`}
+                  placeholder="Enter your Gmail address"
+                  autoComplete="email"
+                  pattern="^[a-zA-Z0-9._%+\-]+@gmail\.com$"
+                  aria-invalid={Boolean(formErrors.email)}
+                  aria-describedby={formErrors.email ? "email-error" : undefined}
                   required
                 />
+                {formErrors.email && (
+                  <p id="email-error" className="mt-2 text-sm text-red-600">
+                    {formErrors.email}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -177,10 +297,13 @@ export function Contact() {
                 <select
                   id="service"
                   value={formData.service}
-                  onChange={(e) =>
-                    setFormData({ ...formData, service: e.target.value })
+                  onChange={(e) => updateField("service", e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none bg-white ${formErrors.service ? "border-red-400" : "border-gray-300"
+                    }`}
+                  aria-invalid={Boolean(formErrors.service)}
+                  aria-describedby={
+                    formErrors.service ? "service-error" : undefined
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none bg-white"
                   required
                 >
                   <option value="" disabled>
@@ -200,6 +323,11 @@ export function Contact() {
                   </option>
                   <option value="Other Services">Other Services</option>
                 </select>
+                {formErrors.service && (
+                  <p id="service-error" className="mt-2 text-sm text-red-600">
+                    {formErrors.service}
+                  </p>
+                )}
               </div>
 
               {formData.service === "Other Services" && (
@@ -219,12 +347,29 @@ export function Contact() {
                     id="otherDetails"
                     value={formData.otherDetails}
                     onChange={(e) =>
-                      setFormData({ ...formData, otherDetails: e.target.value })
+                      updateField("otherDetails", e.target.value)
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none ${formErrors.otherDetails
+                        ? "border-red-400"
+                        : "border-gray-300"
+                      }`}
                     placeholder="e.g., GST Registration"
+                    aria-invalid={Boolean(formErrors.otherDetails)}
+                    aria-describedby={
+                      formErrors.otherDetails
+                        ? "other-details-error"
+                        : undefined
+                    }
                     required
                   />
+                  {formErrors.otherDetails && (
+                    <p
+                      id="other-details-error"
+                      className="mt-2 text-sm text-red-600"
+                    >
+                      {formErrors.otherDetails}
+                    </p>
+                  )}
                 </motion.div>
               )}
 
@@ -238,9 +383,7 @@ export function Contact() {
                 <textarea
                   id="comments"
                   value={formData.comments}
-                  onChange={(e) =>
-                    setFormData({ ...formData, comments: e.target.value })
-                  }
+                  onChange={(e) => updateField("comments", e.target.value)}
                   rows={5}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
                   placeholder="How can we help you?"
