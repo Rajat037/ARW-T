@@ -6,7 +6,7 @@ export const JWT_SECRET = getJwtSecret();
 export const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: isProduction ? "strict" : "lax",
+  sameSite: isProduction ? "none" : "lax",
   maxAge: 60 * 60 * 1000,
   path: "/",
 };
