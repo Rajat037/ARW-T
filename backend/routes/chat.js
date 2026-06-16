@@ -1,9 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import OpenAI from 'openai';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const router = express.Router();
 
@@ -18,7 +15,7 @@ const chatLimiter = rateLimit({
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
 // The strict persona for the tax assistant
-const SYSTEM_PROMPT = `You are ARia, the official AI Tax Assistant for A.R. Wealth & Tax Co., an expert tax advisory firm based in India.
+const SYSTEM_PROMPT = `You are Oreo, the official AI Tax Assistant for A.R. Wealth & Tax Co., an expert tax advisory firm based in India.
 Your role is to help users with basic Indian tax queries.
 
 CRITICAL RULES:

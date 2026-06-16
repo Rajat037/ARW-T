@@ -2,12 +2,17 @@ node_modules
 .env
 .env.local
 .env.*.local
+frontend/.env
+frontend/.env.local
 backend/.env
 cookies.txt
 backend/cookies.txt
 dist
+frontend/dist
 backend/node_modules
+frontend/node_modules
 database.sqlite
+backend/database.sqlite
 npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*

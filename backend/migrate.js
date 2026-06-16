@@ -1,4 +1,4 @@
-import { initializeDb } from "./lib/db.js";
+import { initializeDb } from "./config/db.js";
 
 const run = async () => {
   try {

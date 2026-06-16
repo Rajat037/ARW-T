@@ -18,9 +18,7 @@ Professional tax advisory platform for individuals, startups, and enterprises ac
 This repository is prepared for safe deployment with:
 
 - separate frontend and backend configuration
-- production static serving from the backend in `NODE_ENV=production`
 - environment examples for safe local setup
-- Docker support for containerized deployment
 - `.gitignore` protection for secrets and local artifacts
 
 ## Prerequisites
@@ -44,35 +42,31 @@ cd "Website design with features"
 
 ```bash
 npm install
-cd backend
-npm install
-cd ..
 ```
 
 ### 3. Configure environment variables
 
 ```bash
-cp .env.example .env
+cp frontend/.env.example frontend/.env
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` with your real database, email, JWT, Razorpay, and Firebase values.
+Edit `frontend/.env` with your Vite/Firebase values. Edit `backend/.env` with your real database, email, JWT, Razorpay, and Firebase values.
 
 ### 4. Run database setup
 
 ```bash
-cd backend
-npm run migrate
+npm --prefix backend run migrate
 ```
 
 ### 5. Start development servers
 
 ```bash
 # Backend
-cd backend && npm run dev
+npm run dev:backend
 
 # Frontend
-cd .. && npm run dev
+npm run dev:frontend
 ```
 
 Open the frontend at: `http://localhost:5173`
@@ -91,27 +85,11 @@ To start the backend server in production mode:
 NODE_ENV=production npm start
 ```
 
-If you configure `backend/server.js` to serve the built frontend assets, the app will serve the static React site and API from the same host.
-
-## Docker Deployment
-
-A `Dockerfile` and `.dockerignore` are included for container deployment.
-
-Build the image:
-
-```bash
-docker build -t ar-wealth-tax-app .
-```
-
-Run the container:
-
-```bash
-docker run -p 3005:3005 --env-file backend/.env ar-wealth-tax-app
-```
+In production, the frontend is intended to be deployed on Vercel and the backend on Render.
 
 ## Environment Variables
 
-### Root frontend `.env`
+### Frontend `.env`
 
 - `VITE_API_URL` — backend API URL, e.g. `http://localhost:3005`
 - `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`
@@ -133,7 +111,7 @@ Required values:
 ## Production Notes
 
 - Keep `.env` files out of version control.
-- Use `backend/.env.example` and `.env.example` as templates only.
+- Use `frontend/.env.example` and `backend/.env.example` as templates only.
 - Confirm `FRONTEND_ORIGIN` matches your deployed frontend URL.
 - Confirm Azure/Razorpay/Firebase keys are production-ready before launch.
 
@@ -182,28 +160,34 @@ Required values:
 ## Project Structure
 
 ```
-├── src/                    # Frontend (React + Vite)
-│   ├── app/
-│   │   ├── components/     # Reusable UI components
-│   │   │   ├── AuthContext.tsx
-│   │   │   ├── ErrorBoundary.tsx
-│   │   │   ├── Header.tsx
-│   │   │   ├── Footer.tsx
-│   │   │   └── ui/         # Radix-based design system
-│   │   ├── pages/          # Route pages
-│   │   └── routes.tsx      # Lazy-loaded routes
-│   ├── lib/                # Firebase config
-│   └── styles/             # CSS theme
+├── frontend/               # React + Vite app
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── components/
+│   │   │   │   ├── common/ # Shared app widgets
+│   │   │   │   ├── layout/ # Header, footer, shell layout
+│   │   │   │   └── ui/     # Radix-based design system
+│   │   │   ├── pages/      # Route pages
+│   │   │   └── App.tsx
+│   │   ├── context/        # React context providers
+│   │   ├── lib/            # Firebase config
+│   │   ├── routes/         # Router and route guards
+│   │   ├── services/       # API/client service helpers
+│   │   └── styles/         # CSS theme
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.ts
 ├── backend/                # Express.js API
+│   ├── config/             # Database and runtime config
+│   ├── middlewares/        # Auth and validation middleware
+│   ├── routes/             # Focused route modules
+│   ├── services/           # Mailer and reusable app services
+│   ├── uploads/            # Uploaded files
+│   ├── utils/              # Shared backend helpers
 │   ├── server.js           # App entry + middleware
-│   ├── routes/api.js       # API routes
-│   ├── lib/
-│   │   ├── db.js           # PostgreSQL pool + migrations
-│   │   └── mailer.js       # Email notifications
 │   └── migrate.js          # DB migration script
-├── index.html              # HTML entry point
-├── vite.config.ts          # Vite build config
-└── vercel.json             # Frontend deployment config
+├── docs/                   # API docs, diagrams, notes
+├── package.json            # Root scripts for frontend/backend
 ```
 
 ## License

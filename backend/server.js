@@ -4,19 +4,18 @@ import helmet from "helmet";
 import compression from "compression";
 import path from "path";
 import { fileURLToPath } from "url";
-import dotenv from "dotenv";
 import apiRoutes from "./routes/api.js";
 import chatRoutes from "./routes/chat.js";
-import { initializeDb } from "./lib/db.js";
+import { initializeDb } from "./config/db.js";
 import cookieParser from "cookie-parser";
-import csurf from "csurf";
 import rateLimit from "express-rate-limit";
 import morgan from "morgan";
-import statusMonitor from "express-status-monitor";
-import xss from "xss-clean";
 import admin from "firebase-admin";
+import { xss } from "express-xss-sanitizer";
+import { isProduction, validateProductionEnv } from "./config/env.js";
+import { csrfProtection } from "./middlewares/csrfMiddleware.js";
 
-dotenv.config();
+validateProductionEnv();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,8 +25,19 @@ const PORT = process.env.PORT || 3001;
 
 app.set("trust proxy", 1);
 
+const allowedOrigins = process.env.FRONTEND_ORIGIN 
+  ? process.env.FRONTEND_ORIGIN.split(',').map(o => o.trim()) 
+  : ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"];
+
 const corsOptions = {
-  origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      console.warn(`Blocked by CORS: ${origin}`);
+      callback(null, false);
+    }
+  },
   credentials: true,
 };
 
@@ -54,9 +64,10 @@ if (
     });
   } catch (error) {
     console.error("Failed to initialize Firebase Admin:", error.message);
-    console.warn(
-      "Google auth will not work. Please provide a valid Firebase service account key.",
-    );
+    if (isProduction) {
+      process.exit(1);
+    }
+    console.warn("Google auth will not work until Firebase Admin is configured.");
   }
 } else {
   console.warn(
@@ -65,7 +76,6 @@ if (
 }
 
 // Middleware
-app.use(statusMonitor({ path: "/status" }));
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -116,18 +126,10 @@ app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 app.use(xss());
 app.use(morgan("tiny"));
 app.use(limiter);
-app.use(
-  csurf({
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    },
-  }),
-);
+app.use(csrfProtection);
 app.use((req, res, next) => {
   if (
-    process.env.NODE_ENV === "production" &&
+    isProduction &&
     req.headers["x-forwarded-proto"] !== "https" &&
     !req.secure
   ) {
@@ -136,15 +138,18 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use((req, res, next) => {
-  if (typeof req.csrfToken === "function") {
-    res.cookie("XSRF-TOKEN", req.csrfToken(), {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
+// Lazy database initialization middleware for serverless environment compatibility
+app.use(async (req, res, next) => {
+  try {
+    const { pool } = await import("./config/db.js");
+    if (!pool) {
+      await initializeDb();
+    }
+    next();
+  } catch (error) {
+    console.error("Database initialization failed:", error);
+    res.status(500).json({ error: "Database initialization failed" });
   }
-  next();
 });
 
 app.use((req, res, next) => {
@@ -156,20 +161,8 @@ app.use((req, res, next) => {
 app.use("/api/chat", chatRoutes);
 app.use("/api", apiRoutes);
 
-if (process.env.NODE_ENV === "production") {
-  const staticPath = path.join(__dirname, "../dist");
-  app.use(express.static(staticPath, { maxAge: "1y", etag: false }));
-
-  app.get("*", (req, res, next) => {
-    if (
-      req.path.startsWith("/api") ||
-      req.path.startsWith("/status") ||
-      req.path === "/health"
-    ) {
-      return next();
-    }
-    res.sendFile(path.join(staticPath, "index.html"));
-  });
+if (isProduction) {
+  // Static serving of frontend removed as it's hosted separately on Vercel.
 }
 
 // Error handling middleware
@@ -199,4 +192,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
